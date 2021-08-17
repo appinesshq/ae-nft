@@ -1,0 +1,6 @@
+@compiler >= 6
+
+contract ExampleContract =
+
+   entrypoint onClassicNFTReceived(_from: address, _to: address, _tokenID: int, _data: string) : bool =
+      true
