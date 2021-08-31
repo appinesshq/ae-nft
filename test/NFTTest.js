@@ -66,7 +66,7 @@ describe('NFT Contract', () => {
         }
     });
 
-    it('Should deploy ClassicNFT Contract', async () => {
+    it('Should deploy NFT Contract', async () => {
         await contract.deploy(["Test NFT", "TST"]);
         //TODO Check metadata
     });
@@ -82,22 +82,22 @@ describe('NFT Contract', () => {
     });
 
     it('Should return the owner', async () => {
-        const owner = (await contract.methods.ownerOf(0)).decodedResult;
+        const owner = (await contract.methods.owner_of(0)).decodedResult;
         assert(owner == ownerKeypair.publicKey, 'Invalid owner');
     });
 
     it('Should return the balance', async () => {
-        const b = (await contract.methods.balanceOf(ownerKeypair.publicKey)).decodedResult;
+        const b = (await contract.methods.balance_of(ownerKeypair.publicKey)).decodedResult;
         assert(b == 1, 'Incorrect balance');
     });
 
     it('Should transfer a token and update the balances', async () => {
-        await contract.methods.transferFrom(ownerKeypair.publicKey, otherKeypair.publicKey, 0);
+        await contract.methods.transfer_from(ownerKeypair.publicKey, otherKeypair.publicKey, 0);
 
-        const b1 = (await contract.methods.balanceOf(ownerKeypair.publicKey)).decodedResult;
+        const b1 = (await contract.methods.balance_of(ownerKeypair.publicKey)).decodedResult;
         assert(b1 == 0, 'Incorrect balance');
 
-        const b2 = (await contract.methods.balanceOf(otherKeypair.publicKey)).decodedResult;
+        const b2 = (await contract.methods.balance_of(otherKeypair.publicKey)).decodedResult;
         assert(b2 == 1, 'Incorrect balance');
 
     });
@@ -106,32 +106,32 @@ describe('NFT Contract', () => {
         const c = await otherClient.getContractInstance(contractContent, {contractAddress: contract.deployInfo.address });
         await c.methods.approve(ownerKeypair.publicKey, 0);
        
-        const approvedAddress = (await contract.methods.getApproved(0)).decodedResult;
+        const approvedAddress = (await contract.methods.get_approved(0)).decodedResult;
         assert(approvedAddress == ownerKeypair.publicKey, 'approve failed')
 
-        await contract.methods.transferFrom(otherKeypair.publicKey, ownerKeypair.publicKey, 0);
+        await contract.methods.transfer_from(otherKeypair.publicKey, ownerKeypair.publicKey, 0);
 
-        const b1 = (await contract.methods.balanceOf(ownerKeypair.publicKey)).decodedResult;
+        const b1 = (await contract.methods.balance_of(ownerKeypair.publicKey)).decodedResult;
         assert(b1 == 1, 'Incorrect balance');
 
-        const b2 = (await contract.methods.balanceOf(otherKeypair.publicKey)).decodedResult;
+        const b2 = (await contract.methods.balance_of(otherKeypair.publicKey)).decodedResult;
         assert(b2 == 0, 'Incorrect balance');
 
     });
 
     it('Should transfer a token by operator and update the balances', async () => {
-        await contract.methods.setApprovalForAll(otherKeypair.publicKey, true);
+        await contract.methods.set_approval_for_all(otherKeypair.publicKey, true);
 
-        const isApproved = (await contract.methods.isApprovedForAll(ownerKeypair.publicKey, otherKeypair.publicKey)).decodedResult
-        assert(isApproved, 'setApprovalForAll failed')
+        const isApproved = (await contract.methods.is_approved_for_all(ownerKeypair.publicKey, otherKeypair.publicKey)).decodedResult
+        assert(isApproved, 'set_approval_for_all failed')
 
         const c = await otherClient.getContractInstance(contractContent, {contractAddress: contract.deployInfo.address });
-        await c.methods.transferFrom(ownerKeypair.publicKey, otherKeypair.publicKey, 0);
+        await c.methods.transfer_from(ownerKeypair.publicKey, otherKeypair.publicKey, 0);
 
-        // const b1 = (await contract.methods.balanceOf(ownerKeypair.publicKey)).decodedResult;
+        // const b1 = (await contract.methods.balance_of(ownerKeypair.publicKey)).decodedResult;
         // assert(b1 == 0, 'Incorrect balance');
 
-        // const b2 = (await contract.methods.balanceOf(otherKeypair.publicKey)).decodedResult;
+        // const b2 = (await contract.methods.balance_of(otherKeypair.publicKey)).decodedResult;
         // assert(b2 == 1, 'Incorrect balance');
 
     });
@@ -140,7 +140,7 @@ describe('NFT Contract', () => {
         const c = await otherClient.getContractInstance(contractContent, {contractAddress: contract.deployInfo.address });
         await c.methods.burn(0);
 
-        const b = (await c.methods.balanceOf(otherKeypair.publicKey)).decodedResult;
+        const b = (await c.methods.balance_of(otherKeypair.publicKey)).decodedResult;
         assert(b == 0, 'Incorrect balance');
     });
 
@@ -155,7 +155,7 @@ describe('NFT Contract', () => {
         // This is needed to prevent the call from failing. The call can't be made with
         // a ct_ address.
         const contract_address = "ak" + exampleContract.deployInfo.address.slice(2);
-        await contract.methods.safeTransferFrom(ownerKeypair.publicKey, contract_address, 1);
+        await contract.methods.safe_transfer_from(ownerKeypair.publicKey, contract_address, 1);
     });
 
 });
