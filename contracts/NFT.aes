@@ -78,13 +78,11 @@ contract NFT =
     /// @param _to is the address of the new token's owner
     /// @param _tokenID is the id of the minted token
     /// @dev throws if already minted
-    /// @return true after completion
-    stateful entrypoint mint(_to: address, _tokenID: int) : bool = 
+    stateful entrypoint mint(_to: address, _tokenID: int) : unit = 
         // TODO: Option to limit who may mint
         require(Map.lookup(_tokenID, state.owners) == None, "Already minted")
         put( state { balances[_to = 0] @ b = b + 1, owners[_tokenID] = _to } )
         Chain.event(TransferEvent(Contract.address, _to, _tokenID))
-        true
 
     /// mint_with_token_data issues a new token with metadata to the provided address
     /// @param _to is the address of the new token's owner
@@ -92,13 +90,11 @@ contract NFT =
     /// @param _tokenDataType is the type of data the value represents, e.g. uri, object_id
     /// @param _tokenDataValue is the data's value
     /// @dev throws if already minted
-    /// @return true after completion
-    stateful entrypoint mint_with_token_data(_to: address, _tokenID: int, _tokenDataType: string, _tokenDataValue: string) : bool = 
+    stateful entrypoint mint_with_token_data(_to: address, _tokenID: int, _tokenDataType: string, _tokenDataValue: string) : unit = 
         // TODO: Option to limit who may mint
         require(Map.lookup(_tokenID, state.owners) == None, "Already minted")
         put( state { balances[_to = 0] @ b = b + 1, owners[_tokenID] = _to, token_data[_tokenID] = (String.to_lower(_tokenDataType), _tokenDataValue) } )
         Chain.event(TransferEvent(Contract.address, _to, _tokenID))
-        true
 
     /// safe_mint wraps around mint and offers a safe way to mint to contract recipients
     /// by checking whether the NFTReceiver interface is implemented on the receiving
@@ -108,13 +104,13 @@ contract NFT =
     /// @param _data is data that will be forwarded to contact recipients
     /// @dev throws if already minted
     /// @return true after completion
-    stateful entrypoint safe_mint(_to: address, _tokenID: int, _data: string) : bool =
+    stateful entrypoint safe_mint(_to: address, _tokenID: int, _data: string) : unit =
         // TODO: Option to limit who may mint
         require(Map.lookup(_tokenID, state.owners) == None, "Already minted")
         _invokeNFTReceiver(Contract.address, _to, _tokenID, _data)
         mint(_to, _tokenID)
 
-    stateful entrypoint safe_mint_with_token_data(_to: address, _tokenID: int, _tokenDataType: string, _tokenDataValue: string, _data: string) : bool =
+    stateful entrypoint safe_mint_with_token_data(_to: address, _tokenID: int, _tokenDataType: string, _tokenDataValue: string, _data: string) : unit =
         // TODO: Option to limit who may mint
         require(Map.lookup(_tokenID, state.owners) == None, "Already minted")
         _invokeNFTReceiver(Contract.address, _to, _tokenID, _data)
@@ -122,7 +118,7 @@ contract NFT =
 
     /// burn will burn a token by setting the owner's address to the contract's address.
     /// @param _tokenID is the id of the token
-    stateful entrypoint burn(_tokenID: int) : bool =
+    stateful entrypoint burn(_tokenID: int) : unit =
         switch(Map.lookup(_tokenID, state.owners))
             None => abort("invalid tokenID")
             Some(owner) =>
@@ -130,7 +126,6 @@ contract NFT =
                 remove_approval(_tokenID)
                 put(state { owners[_tokenID] = Contract.address, balances[owner] @b = b - 1 })
                 Chain.event(TransferEvent(owner, Contract.address, _tokenID))
-                true
 
     /// balance_of provides all tokens assigned to an owner
     /// @param _owner is the address for whom to query the balance
@@ -223,11 +218,10 @@ contract NFT =
     ///  multiple operators per owner.
     /// @param _operator Address to add to the set of authorized operators.
     /// @param _approved True if the operator is approved, false to revoke approval
-    stateful entrypoint set_approval_for_all(_operator: address, _approved: bool) : bool =
+    stateful entrypoint set_approval_for_all(_operator: address, _approved: bool) : unit =
         require(Call.caller != _operator, "caller can't update own status")
         put( state { operators = { [Call.caller] = { [_operator] = true }} } )
         Chain.event(ApprovalForAllEvent(Call.caller, _operator, _approved))
-        true
 
     /// get_approved provides the approved address for a token
     /// @dev Throws if `_tokenId` is not a valid token
@@ -247,7 +241,6 @@ contract NFT =
     /// @param _operator The address that acts on behalf of the owner
     /// @return True or false to indicate whether `_operator` is an approved operator or not
     entrypoint is_approved_for_all(_owner: address, _operator: address) : bool = 
-        // TODO: Check for a more efficient way
         switch(Map.lookup(_owner, state.operators))
             None => false
             Some(approvals) =>
