@@ -35,12 +35,14 @@ contract NFT =
     /// @property operators holds a list of authorizations to do transactions on 
     /// behalf of the owner for all tokens held
     record state = 
-        { meta_info: meta_info
+        { owner: address
+        , meta_info: meta_info
         , owners: map(int, address)
         , balances: map(address, int)
         , approvals: map(int, address)
         , operators: map(address, map(address, bool))
-        , token_data: map(int, (string * string)) }
+        , token_data: map(int, (string * string)) 
+        , minters: list(address) }
 
     /// init Initialize the contract.
     /// @param _name is a human readable name for the contract.
@@ -50,12 +52,14 @@ contract NFT =
         require(String.length(_name) >= 1, "STRING_TOO_SHORT_NAME")
         require(String.length(_symbol) >= 1, "STRING_TOO_SHORT_SYMBOL")
 
-        { meta_info = { name = _name, symbol = _symbol }, 
+        { owner = Call.caller, 
+          meta_info = { name = _name, symbol = _symbol }, 
           token_data = {},
           owners = {}, 
           balances = {}, 
           approvals = {}, 
-          operators = {} }
+          operators = {}, 
+          minters = [Call.caller] }
 
     // meta_info is a getter for meta info.
     entrypoint meta_info() : meta_info =
@@ -82,9 +86,9 @@ contract NFT =
     /// mint issues a new token to the provided address
     /// @param _to is the address of the new token's owner
     /// @param _token_id is the id of the minted token
-    /// @dev throws if ALREADY_MINTED
+    /// @dev throws if already minted
     stateful entrypoint mint(_to: address, _token_id: int) : unit = 
-        // TODO: Option to limit who may mint
+        require(is_minter(Call.caller), "ONLY_MINTER_CALL_ALLOWED")
         require(Map.lookup(_token_id, state.owners) == None, "ALREADY_MINTED")
         put( state { balances[_to = 0] @ b = b + 1, owners[_token_id] = _to } )
         Chain.event(TransferEvent(Contract.address, _to, _token_id))
@@ -94,9 +98,9 @@ contract NFT =
     /// @param _token_id is the id of the minted token
     /// @param _token_data_type is the type of data the value represents, e.g. uri, object_id
     /// @param _token_data_value is the data's value
-    /// @dev throws if ALREADY_MINTED
+    /// @dev throws if already minted
     stateful entrypoint mint_with_token_data(_to: address, _token_id: int, _token_data_type: string, _token_data_value: string) : unit = 
-        // TODO: Option to limit who may mint
+        require(is_minter(Call.caller), "ONLY_MINTER_CALL_ALLOWED")
         require(Map.lookup(_token_id, state.owners) == None, "ALREADY_MINTED")
         put( state { balances[_to = 0] @ b = b + 1, owners[_token_id] = _to, token_data[_token_id] = (String.to_lower(_token_data_type), _token_data_value) } )
         Chain.event(TransferEvent(Contract.address, _to, _token_id))
@@ -107,16 +111,16 @@ contract NFT =
     /// @param _to is the address of the new token's owner
     /// @param _token_id is the id of the minted token
     /// @param _data is data that will be forwarded to contact recipients
-    /// @dev throws if ALREADY_MINTED
+    /// @dev throws if already minted
     /// @return true after completion
     stateful entrypoint safe_mint(_to: address, _token_id: int, _data: string) : unit =
-        // TODO: Option to limit who may mint
+        require(is_minter(Call.caller), "ONLY_MINTER_CALL_ALLOWED")
         require(Map.lookup(_token_id, state.owners) == None, "ALREADY_MINTED")
         _invokeNFTReceiver(Contract.address, _to, _token_id, _data)
         mint(_to, _token_id)
 
     stateful entrypoint safe_mint_with_token_data(_to: address, _token_id: int, _token_data_type: string, _token_data_value: string, _data: string) : unit =
-        // TODO: Option to limit who may mint
+        require(is_minter(Call.caller), "ONLY_MINTER_CALL_ALLOWED")
         require(Map.lookup(_token_id, state.owners) == None, "ALREADY_MINTED")
         _invokeNFTReceiver(Contract.address, _to, _token_id, _data)
         mint_with_token_data(_to, _token_id, _token_data_type, _token_data_value)
@@ -157,15 +161,6 @@ contract NFT =
     stateful entrypoint safe_transfer_from_with_data(_from: address, _to: address, _token_id: int, _data: string) =
         transfer_from(_from, _to, _token_id)
         _invokeNFTReceiver(_from, _to, _token_id, _data)
-    
-    function _invokeNFTReceiver(_from: address, _to: address, _token_id: int, _data: string) : bool =
-        if(Address.is_contract(_to))
-            let c = Address.to_contract(_to)
-            switch(c.onNFTReceived(_from, _to, _token_id, _data, protected = true) : option(bool))
-                None => false
-                Some(val) => val
-        else
-            false
 
     /// safe_transfer_from transfers the ownership of an NFT from one address to another address
     /// works identically to safe_transfer_from_with_data with that difference that the data 
@@ -252,3 +247,28 @@ contract NFT =
                 switch(Map.lookup(_operator, approvals))
                     None => false
                     Some(val) => val
+
+    entrypoint is_minter(_minter: address) : bool = 
+        List.find((a) => a == _minter, state.minters) == Some(_minter)
+
+    stateful entrypoint set_minter(_minter: address) : unit =
+        require(Call.caller == state.owner, "ONLY_OWNER_CALL_ALLOWED")
+        require(!is_minter(_minter), "ADDRESS_IS_ALREADY_MINTER")
+        let _minters = _minter :: state.minters
+        put( state { minters = _minters } )
+
+    stateful entrypoint remove_minter(_minter: address) : unit =
+        require(_minter != state.owner, "CANT_REMOVE_OWNER")
+        require(Call.caller == state.owner || Call.caller == _minter, "ONLY_OWNER__OR_OWN_CALL_ALLOWED")
+        put( state { minters = List.filter((a) => a != _minter, state.minters)} )
+
+    // HELPER FUNCTIONS
+
+    function _invokeNFTReceiver(_from: address, _to: address, _token_id: int, _data: string) : bool =
+        if(Address.is_contract(_to))
+            let c = Address.to_contract(_to)
+            switch(c.onNFTReceived(_from, _to, _token_id, _data, protected = true) : option(bool))
+                None => false
+                Some(val) => val
+        else
+            false
