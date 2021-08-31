@@ -77,7 +77,7 @@ describe('NFT Contract', () => {
             await assert.isRejected(await contract.methods.mint(ownerKeypair.publicKey, 0));
             assert.fail('second minting of same tokenID did not fail');
         } catch(err) {
-            assert.include(err.message, 'Already minted', 'expected error message not found');
+            assert.include(err.message, 'ALREADY_MINTED', 'expected error message not found');
         }
     });
 
