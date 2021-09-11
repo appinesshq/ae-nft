@@ -34,7 +34,7 @@ Issues a new token to the provided address.
 - @dev throws if already minted
 - @dev Emits TransferEvent
   
-`stateful entrypoint safe_mint : (address, int, string) => bool`
+`stateful entrypoint safe_mint : (address, int, string) => unit`
 
 Issues a new token and calls the NFTReceiver implementation on the receiving contract. 
 Does NOT throw if the call failes for ERC-721 compatibility reasons.
@@ -43,7 +43,7 @@ Does NOT throw if the call failes for ERC-721 compatibility reasons.
 - @param _token_id is the id of the minted token
 - @param _data is data that will be forwarded to contact recipients
 - @dev throws if already minted
-- @return true if the call to the NFTReceiver was succesfull and false if the call failed.
+- @dev throws if the call to NFTReceiver implementation failed
 - @dev Emits TransferEvent
 
 `entrypoint balance_of : (address) => int`
@@ -60,7 +60,7 @@ Provides the owner of token.
 - @param _token_id Token identifier
 - @return Some(address) or None
 
-`stateful entrypoint safe_transfer_from_with_data : (address, address, int, string) => bool`
+`stateful entrypoint safe_transfer_from_with_data : (address, address, int, string) => unit`
 
 Transfers the ownership of a token from one address to another address and calls the NFTReceiver implementation
 on the receiving contract.
@@ -72,10 +72,11 @@ on the receiving contract.
 - @dev Throws unless `msg.sender` is the current owner, an authorized operator, or the approved address for this NFT. 
 - @dev Throws if `_from` is not the current owner. 
 - @dev Throws if `_to` is the zero address. 
-- @dev Throws if `_token_id` is not a valid NFT.
+- @dev Throws if `_token_id` is not a valid token.
+- @dev throws if the call to NFTReceiver implementation failed
 - @dev Emits TransferEvent
 
-`stateful entrypoint safe_transfer_from : (address, address, int) => bool`
+`stateful entrypoint safe_transfer_from : (address, address, int) => unit`
 
 Transfers the ownership of a token from one address to another address. Works identically to safe_transfer_from_with_data with that difference that the data parameter is set to an empty string.
 
@@ -86,6 +87,7 @@ Transfers the ownership of a token from one address to another address. Works id
 - @dev Throws if `_from` is not the current owner. 
 - @dev Throws if `_to` is the zero address. 
 - @dev Throws if `_token_id` is not a valid NFT.
+- @dev throws if the call to NFTReceiver implementation failed
 - @dev Emits TransferEvent
 
 `stateful entrypoint transfer_from : (address, address, int) => unit` 
@@ -228,7 +230,7 @@ Issues a new token with token data to the provided address.
 - @dev Emits TransferEvent
     
 
-`stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => bool`
+`stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => unit`
 
 Issues a new token with token data to the provided address and calls the NFTReceiver implementation on the receiving contract. 
 
@@ -238,6 +240,7 @@ Issues a new token with token data to the provided address and calls the NFTRece
 - @param _token_data_value is the data's value
 - @param _data is data that will be forwarded to contact recipients
 - @dev throws if already minted
+- @dev throws if the call to NFTReceiver implementation failed
 - @dev Emits TransferEvent
 - @return true if the call to the NFTReceiver was succesfull and false if the call failed.
 
