@@ -1,9 +1,3 @@
-@compiler >= 6
-
-include "List.aes"
-include "Option.aes"
-include "String.aes"
-
 contract interface NFT =
     /// Events.
     /// TransferEvent(_from, _to, _token_id)
@@ -103,7 +97,7 @@ contract interface NFT =
 
 contract interface ControlledMinting =
 
-    stateful entrypoint set_minter : (address) +> unit
+    stateful entrypoint set_minter : (address) => unit
 
     stateful entrypoint remove_minter : (address) => unit
 
@@ -129,14 +123,6 @@ contract interface WithTokenData =
     stateful entrypoint mint_with_token_data : (address, int, string, string) => unit
 
     stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => unit
-
-contract interface WithMetaInfo = 
-    record meta_info = 
-    { name: string
-    , symbol: string }
-
-    // meta_info is a getter for meta info.
-    entrypoint meta_info : () => meta_info
 
 contract interface NFTReceiver = 
     entrypoint on_nft_received : (address, address, int, string) => unit

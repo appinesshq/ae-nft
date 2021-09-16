@@ -21,6 +21,65 @@ The following standard describes standard interfaces for non-fungible tokens. Th
 
 ## Specification
 
+```
+contract interface NFT =
+    /// Events.
+    /// TransferEvent(_from, _to, _token_id)
+    /// ApprovalEvent(_owner, _approved, _token_id)
+    /// ApprovalForAllEvent(_owner, _operator, _approved)
+    datatype event 
+        = TransferEvent(indexed address, indexed address, indexed int)
+        | ApprovalEvent(indexed address, indexed address, indexed int)
+        | ApprovalForAllEvent(indexed address, indexed address, bool)
+
+    stateful entrypoint mint : (address, int) => unit
+
+    stateful entrypoint safe_mint : (address, int, string) => bool
+
+    entrypoint balance_of : (address) => int
+
+    entrypoint owner_of : (int) => option(address)
+        
+    stateful entrypoint safe_transfer_from_with_data : (address, address, int, string) => bool
+
+    stateful entrypoint safe_transfer_from : (address, address, int) => bool
+
+    stateful entrypoint transfer_from : (address, address, int) => unit
+
+    stateful entrypoint approve : (address, int) => unit
+
+    stateful entrypoint revoke_approval : (int) => unit
+
+    stateful entrypoint set_approval_for_all : (address, bool) => unit
+
+    entrypoint get_approved : (int) => option(address)
+
+    entrypoint is_approved : (int, address) => bool
+
+    entrypoint is_approved_for_all : (address, address) => bool
+
+contract interface ControlledMinting =
+
+    stateful entrypoint set_minter : (address) => unit
+
+    stateful entrypoint remove_minter : (address) => unit
+
+    entrypoint is_minter : (address) => bool
+
+contract interface Burnable = 
+    stateful entrypoint burn : (int) => unit
+
+contract interface WithTokenData = 
+    entrypoint get_token_data : (int) => option((string * string))
+
+    stateful entrypoint mint_with_token_data : (address, int, string, string) => unit
+
+    stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => unit
+
+contract interface NFTReceiver = 
+    entrypoint on_nft_received : (address, address, int, string) => unit
+```
+
 ### NFT (Primary interface)
 
 The design goal of the primary interface is to be as compatible with ERC-721 as possible, so that anyone who can work with ERC-721 can work with this interface. However, where Sophia offers a better way, performance and efficiency should prevail over compatibility.
