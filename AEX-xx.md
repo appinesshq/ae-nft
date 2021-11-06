@@ -13,225 +13,268 @@ Created: 2021-09-11
 
 ## Abstract
 
-A standard implementation of non-fungible tokens for the Aeternity ecosystem.
+A standard implementation of non-fungible tokens for the Aeternity ecosystem. The design goal of the primary interface is to be as compatible with ERC-721 as possible, so that anyone who can work with ERC-721 can work with this interface. However, where Sophia offers a better way, performance and efficiency should prevail over compatibility.
+
+There is no support for unsafe transactions. Therefore all transactions are ought to be safe.
 
 ## Motivation
 
-The following standard describes standard interfaces for non-fungible tokens. The proposal contains a primary interface and secondary interfaces for optional functionality that not everyone might need.
+The following standard describes standard interfaces for non-fungible tokens. The proposal contains a primary interface and secondary interfaces for optional functionality that not everyone might need. 
 
-## Specification
+# Basic NFT
+
+## Interface
 
 ```
 contract interface NFT =
     /// Events.
-    /// TransferEvent(_from, _to, _token_id)
-    /// ApprovalEvent(_owner, _approved, _token_id)
-    /// ApprovalForAllEvent(_owner, _operator, _approved)
+    /// Transfer(from, to, token_id)
+    /// Approval(owner, approved, token_id)
+    /// ApprovalForAll(owner, operator, approved)
     datatype event 
-        = TransferEvent(indexed address, indexed address, indexed int)
-        | ApprovalEvent(indexed address, indexed address, indexed int)
-        | ApprovalForAllEvent(indexed address, indexed address, bool)
+        = Transfer(indexed address, indexed address, indexed int)
+        | Approval(indexed address, indexed address, indexed int)
+        | ApprovalForAll(indexed address, indexed address, bool)
 
-    stateful entrypoint mint : (address, int) => unit
+    stateful entrypoint mint : (address, option(string)) => int
 
-    stateful entrypoint safe_mint : (address, int, string) => bool
+    entrypoint balance : (address) => option(int)
 
-    entrypoint balance_of : (address) => int
-
-    entrypoint owner_of : (int) => option(address)
+    entrypoint owner : (int) => option(address)
         
-    stateful entrypoint safe_transfer_from_with_data : (address, address, int, string) => bool
-
-    stateful entrypoint safe_transfer_from : (address, address, int) => bool
-
-    stateful entrypoint transfer_from : (address, address, int) => unit
+    stateful transfer : (from address, to address, token int, data option(string)) => unit
 
     stateful entrypoint approve : (address, int) => unit
 
-    stateful entrypoint revoke_approval : (int) => unit
+    stateful entrypoint approve_all : (address, bool) => unit
 
-    stateful entrypoint set_approval_for_all : (address, bool) => unit
+    stateful entrypoint revoke_approval : (int) => unit
 
     entrypoint get_approved : (int) => option(address)
 
     entrypoint is_approved : (int, address) => bool
 
     entrypoint is_approved_for_all : (address, address) => bool
-
-contract interface ControlledMinting =
-
-    stateful entrypoint set_minter : (address) => unit
-
-    stateful entrypoint remove_minter : (address) => unit
-
-    entrypoint is_minter : (address) => bool
-
-contract interface Burnable = 
-    stateful entrypoint burn : (int) => unit
-
-contract interface WithTokenData = 
-    entrypoint get_token_data : (int) => option((string * string))
-
-    stateful entrypoint mint_with_token_data : (address, int, string, string) => unit
-
-    stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => unit
-
-contract interface NFTReceiver = 
-    entrypoint on_nft_received : (address, address, int, string) => unit
 ```
 
-### NFT (Primary interface)
+## Methods
 
-The design goal of the primary interface is to be as compatible with ERC-721 as possible, so that anyone who can work with ERC-721 can work with this interface. However, where Sophia offers a better way, performance and efficiency should prevail over compatibility.
+### mint\(\)
 
-`stateful entrypoint mint : (address, int) => unit`
+Issues a new token to the provided address. If the `owner` is a contract, NFTReceiver will be called with `data` if provided.
+Emits a Transfer event.
+Throws if the call to NFTReceiver implementation failed (safe transfer). 
 
-Issues a new token to the provided address.
+```sophia
+stateful entrypoint mint : (owner address, data option(string)) => int
+```
+| parameter | type | 
+| :--- | :--- | 
+| owner | address |
+| data  | string | 
 
-- @param _to is the address of the new token's owner
-- @param _token_id is the id of the minted token
-- @dev throws if already minted
-- @dev Emits TransferEvent
-  
-`stateful entrypoint safe_mint : (address, int, string) => unit`
+| return | type |
+| :--- | :--- |
+| token id | int |
 
-Issues a new token and calls the NFTReceiver implementation on the receiving contract. 
-Does NOT throw if the call failes for ERC-721 compatibility reasons.
+### balance\(\)
 
-- @param _to is the address of the new token's owner
-- @param _token_id is the id of the minted token
-- @param _data is data that will be forwarded to contact recipients
-- @dev throws if already minted
-- @dev throws if the call to NFTReceiver implementation failed
-- @dev Emits TransferEvent
+```sophia
+entrypoint balance : (owner address) => int
+```
 
-`entrypoint balance_of : (address) => int`
+Returns the account balance of another account with address `owner`, if the account exists. If the owner address is unknown to the contract `None` will be returned. Using `option` type as a return value allows us to determine if the account has balance of 0, more than 0, or the account has never had balance and is still unknown to the contract.
 
-Provides all tokens assigned to an owner.
+| parameter | type |
+| :--- | :--- |
+| owner | address |
 
-- @param _owner is the address for whom to query the balance
-- @return the number of tokens owned by `_owner` or 0
+| return | type |
+| :--- | :--- |
+| balance | option(int) |
 
-`entrypoint owner_of : (int) => option(address)`
+### owner\(\)
 
-Provides the owner of token.
+```sophia
+entrypoint owner : (token int) => option(address)
+```
+Returns the owner's address for the provided `token`, if the token is minted. If the token isn't minted `None` will be returned. 
 
-- @param _token_id Token identifier
-- @return Some(address) or None
+| parameter | type |
+| :--- | :--- |
+| token | int |
 
-`stateful entrypoint safe_transfer_from_with_data : (address, address, int, string) => unit`
+| return | type |
+| :--- | :--- |
+| owner | option(address) |
 
-Transfers the ownership of a token from one address to another address and calls the NFTReceiver implementation
-on the receiving contract.
+### transfer\(\)
 
-- @param _from The current owner of the token
-- @param _to The new owner
-- @param _token_id The token to transfer
-- @param data Additional data sent in call to `_to`
-- @dev Throws unless `msg.sender` is the current owner, an authorized operator, or the approved address for this NFT. 
-- @dev Throws if `_from` is not the current owner. 
-- @dev Throws if `_to` is the zero address. 
-- @dev Throws if `_token_id` is not a valid token.
-- @dev throws if the call to NFTReceiver implementation failed
-- @dev Emits TransferEvent
+```sophia
+stateful transfer : (from address, to address, token int, data option(string)) => unit
+```
 
-`stateful entrypoint safe_transfer_from : (address, address, int) => unit`
+Transfers `token` from the `from` address to the `to` address. Will invoke `NFTReceiver` if `to` is a contract receiver. If provided `data` will be submitted with the invocation of `NFTReceiver`. Emits the `Transfer` event.
 
-Transfers the ownership of a token from one address to another address. Works identically to safe_transfer_from_with_data with that difference that the data parameter is set to an empty string.
+Should throw if:
+- `Call.caller` is not the current owner, an authorized operator or the approved address for this token;
+- `from` isn't the current owner;
+- `token` isn't a valid token;
+- the invocation of `NFTReceiver` fails.
 
-- @param _from The current owner of the token
-- @param _to The new owner
-- @param _token_id The token to transfer
-- @dev Throws unless `msg.sender` is the current owner, an authorized operator, or the approved address for this NFT. 
-- @dev Throws if `_from` is not the current owner. 
-- @dev Throws if `_to` is the zero address. 
-- @dev Throws if `_token_id` is not a valid NFT.
-- @dev throws if the call to NFTReceiver implementation failed
-- @dev Emits TransferEvent
+| parameter | type |
+| :--- | :--- |
+| from | address |
+| to | address |
+| token | int |
+| data | option(string) |
 
-`stateful entrypoint transfer_from : (address, address, int) => unit` 
+### approve\(\)
 
-Transfers ownership of a token without any safety measures.
-- @param _from The current owner of the token
-- @param _to The new owner
-- @param _token_id The NFT to transfer
-- @dev Throws unless caller is the current owner, an authorized operator, or the approved address for this NFT. Throws if `_from` is not the current owner. Throws if _token_id` is not a valid token.
-- @dev Emits TransferEvent
+```sophia
+stateful entrypoint approve : (approved address, token int) => unit
+```
 
-`stateful entrypoint approve : (address, int) => unit` 
+Sets the `approved` address to interact on behalf of an owner for the `token`. Throws unless caller is the current NFT owner, or an authorized operator of the current owner. Emits the `Approval` event.
 
-Sets an approved address to interact on behalf of an owner for a token.
+| parameter | type |
+| :--- | :--- |
+| approved | address |
+| token | int |
 
-- @param _approved The new approved NFT controller
-- @param _token_id The token to approve
-- @dev The zero address indicates there is no approved address. Here for compatibility reasons. `revoke_approval` is a cleaner way to do this.
-- @dev Throws unless caller is the current NFT owner, or an authorized operator of the current owner.
-- @dev Emits ApprovalEvent
+### revoke_approval\(\)
 
-`stateful entrypoint revoke_approval : (int) => unit`
+```sophia
+stateful entrypoint revoke_approval : (int) => unit
+```
 
-Revokes approval for the specified token.
+Revokes approval for the specified `token`. Throws unless caller is the current NFT owner, or an authorized operator of the current owner. Emits the `Approval` event.
 
-- @param _token_id Token identifier
-- @dev Throws unless caller is the current NFT owner, or an authorized operator of the current owner.
-- @dev Emits ApprovalEvent
+| parameter | type |
+| :--- | :--- |
+| token | int |
 
-`stateful entrypoint set_approval_for_all : (address, bool) => unit`
+### approve_all\(\)
 
-Enables or disable approval for a manager (operator) to manage all of the caller's assets. 
-Common is to allow multiple operators per owner.
+```sophia
+stateful entrypoint approve_all : (operator address, enabled bool) => unit
+```
 
-- @param _operator Address to add to the set of authorized operators.
-- @param _approved True if the operator is approved, false to revoke approval
-- @dev Emits ApprovalForAllEvent. 
+Enables or disables approval for an `operator` to manage all of the caller's assets. If `enabled` is true the operator is approved, if `false` the approval is revoked. Emits the `ApprovalForAll` event.
 
-`entrypoint get_approved : (int) => option(address)`    
+| parameter | type |
+| :--- | :--- |
+| operator | address |
+| enabled | bool |
 
-Provides the approved address for a token.
+### get_approved\(\)
 
-- @param _token_id The token to find the approved address for
-- @dev Throws if `_token_id` is not a valid token
-- @return The approved address for this token, or None if none is set
+```sophia
+entrypoint get_approved : (token int) => option(address)
+``` 
+
+Returns the address approved to interact with the `token` or returns None if no approval has been set. Throws if `token` is an invalid token ID.
+
+| parameter | type |
+| :--- | :--- |
+| token | int |
+
+| return | type |
+| :--- | :--- |
+| approved | option(address) |
+
+### is_approved\(\)
+
+```sophia
+entrypoint is_approved : (token int, approved address) => bool
+``` 
+
+Returns `true` if `approved` is approved to transact for `token`.
+
+| parameter | type |
+| :--- | :--- |
+| token | int |
+| approved | address |
+
+| return | type |
+| :--- | :--- |
+| approved | bool |
     
-`entrypoint is_approved : (int, address) => bool`
+### is_approved_for_all\(\)
 
-Indicates whether the provided address is approved to transact for the provided token id.
+```sophia
+entrypoint is_approved_for_all : (owner address, operator address) => bool
+``` 
 
-- @param _token_id Token identifier
-- @param _approved Potential approved address
-- @dev Throws if `_token_id` is not a valid token
-
-`entrypoint is_approved_for_all : (address, address) => bool`
+Returns `true` if `operator` is approved to commit transactions on behalf of `owner`.
 
 Indicates wether an address is an authorized operator for another address.
 
-- @param _owner The address that owns the tokens
-- @param _operator The address to act on behalf of the owner
-- @return True or false to indicate whether `_operator` is an approved operator or not
+| parameter | type |
+| :--- | :--- |
+| owner | address |
+| approved | address |
+
+| return | type |
+| :--- | :--- |
+| approved | bool |
      
-#### Events
+## Events
 
 ```
 datatype event 
-        = TransferEvent(indexed address, indexed address, indexed int)
-        | ApprovalEvent(indexed address, indexed address, indexed int)
-        | ApprovalForAllEvent(indexed address, indexed address, bool)
+        = Transfer(indexed address, indexed address, indexed int)
+        | Approval(indexed address, indexed address, indexed int)
+        | ApprovalForAll(indexed address, indexed address, bool)
 ```
 
-##### TransferEvent
-Parameters: from, to, token
+### *Transfer*
 
-Emitted after any form of transfers of tokens.
+```sophia
+Transfer(indexed address, indexed address, indexed int)
+```
 
-##### ApprovalEvent
-Parameters: owner, approved, token_id
+This event MUST be triggered and emitted when tokens are transferred, including zero value transfers.
 
-Emitted after approval of `approved` to transact on behalf of `owner` for `token_id`.
+The event arguments should be as follows: `(from_account, to_account, token_id)`
 
-##### ApprovalForAllEvent
-Parameters: owner, operator, approved
+| parameter | type |
+| :--- | :--- |
+| from_account | address |
+| to_account | address |
+| token_id | int |
 
-Emitted after a change in an operator's approval status. Indicates that `operator` is approved to transact on behalf of `owner` if `approved` is true. If `approved` is false then approval has been revoked. 
+### *Approval*
+
+```sophia
+Approval(indexed address, indexed address, indexed int)
+```
+
+This event MUST be triggered and emitted upon approval, including revocation of approval.
+
+The event arguments should be as follows: `(owner, approved, token_id)`
+
+| parameter | type |
+| :--- | :--- |
+| owner | address |
+| approved | address |
+| token_id | int |
+
+## *ApprovalForAll*
+```sophia
+ApprovalForAll(indexed address, indexed address, bool)
+```
+This event MUST be triggered and emitted upon a change of operator status, including revocation of approval.
+
+The event arguments should be as follows: `(owner, operator, approved)`
+
+| parameter | type |
+| :--- | :--- |
+| owner | address |
+| operator | address |
+| approved | bool |
+
+=============== TODO ===============
 
 ### ControlledMinting (Secondary interface)
 Option to control who may mint tokens.
@@ -286,7 +329,7 @@ Issues a new token with token data to the provided address.
 - @param _token_data_type is the type of data the value represents, e.g. uri, object_id
 - @param _token_data_value is the data's value
 - @dev throws if already minted
-- @dev Emits TransferEvent
+- @dev Emits Transfer
     
 
 `stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => unit`
@@ -300,7 +343,7 @@ Issues a new token with token data to the provided address and calls the NFTRece
 - @param _data is data that will be forwarded to contact recipients
 - @dev throws if already minted
 - @dev throws if the call to NFTReceiver implementation failed
-- @dev Emits TransferEvent
+- @dev Emits Transfer
 - @return true if the call to the NFTReceiver was succesfull and false if the call failed.
 
 #### Common data types
@@ -331,3 +374,27 @@ Contracts receiving NFT tokens should implement this interface. Safe functions w
 - @param _to is the address of the new token's owner
 - @param _token_id is the token identifier
 - @param _data is data passed on from the calling function
+
+## Extensions
+
+contract interface ControlledMinting =
+
+    stateful entrypoint set_minter : (address) => unit
+
+    stateful entrypoint remove_minter : (address) => unit
+
+    entrypoint is_minter : (address) => bool
+
+contract interface Burnable = 
+    stateful entrypoint burn : (int) => unit
+
+contract interface WithTokenData = 
+    entrypoint get_token_data : (int) => option((string * string))
+
+    stateful entrypoint mint_with_token_data : (address, int, string, string) => unit
+
+    stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => unit
+
+contract interface NFTReceiver = 
+    entrypoint on_nft_received : (address, address, int, string) => unit
+```
