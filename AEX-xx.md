@@ -27,14 +27,26 @@ The following standard describes standard interfaces for non-fungible tokens. Th
 
 ```
 contract interface NFT =
-    /// Events.
-    /// Transfer(from, to, token_id)
-    /// Approval(owner, approved, token_id)
-    /// ApprovalForAll(owner, operator, approved)
+    datatype metadata_type = URL | IPFS | OBJECT_ID | MAP
+    datatype metadata = Url(string) | Ipfs(string) | ObjectID(string) | Internal(map(string,string))
+
+    record meta_info = 
+        { name: string
+        , symbol: string 
+        , base_url: option(string)
+        , metadata : metadata_type
+        , token_data: map(int, metadata)}
+
     datatype event 
         = Transfer(indexed address, indexed address, indexed int)
         | Approval(indexed address, indexed address, indexed int)
         | ApprovalForAll(indexed address, indexed address, bool)
+
+    entrypoint aexX_extensions() : list(string)
+
+    entrypoint meta_info() : meta_info
+
+    entrypoint metadata(int): option(metadata)
 
     stateful entrypoint mint : (address, option(string)) => int
 
@@ -59,31 +71,48 @@ contract interface NFT =
 
 ## Methods
 
-### mint\(\)
+### aexX_extensions\(\)
 
-Issues a new token to the provided address. If the `owner` is a contract, NFTReceiver will be called with `data` if provided.
-Emits a Transfer event.
-Throws if the call to NFTReceiver implementation failed (safe transfer). 
+This function **returns** a hardcoded list of all implemented extensions on the deployed contract.
+X is to be replaced with the approriate number allocated to this AEX proposal. At this stage the number is unknown.
 
 ```sophia
-stateful entrypoint mint : (owner address, data option(string)) => int
+entrypoint aex9_extensions() : list(string)
 ```
-| parameter | type | 
-| :--- | :--- | 
-| owner | address |
-| data  | string | 
+
+### meta_info\(\)
+
+Returns meta information associated with the token contract.
+
+```sophia
+entrypoint meta_info() : meta_info
+```
 
 | return | type |
 | :--- | :--- |
-| token id | int |
+| meta_info | meta_info |
+
+### meta_data\(\)
+
+Returns meta data associated with a token. The function is a part of the basic interface, because metadata can be set in the constructor, as well as by implementing the Mintable extention.
+
+```entrypoint metadata(id int): option(metadata)```
+
+| parameter | type |
+| :--- | :--- |
+| id | int |
+
+| return | type |
+| :--- | :--- |
+| data | option(metadata) |
 
 ### balance\(\)
+
+Returns the account balance of another account with address `owner`, if the account exists. If the owner address is unknown to the contract `None` will be returned. Using `option` type as a return value allows us to determine if the account has balance of 0, more than 0, or the account has never had balance and is still unknown to the contract.
 
 ```sophia
 entrypoint balance : (owner address) => int
 ```
-
-Returns the account balance of another account with address `owner`, if the account exists. If the owner address is unknown to the contract `None` will be returned. Using `option` type as a return value allows us to determine if the account has balance of 0, more than 0, or the account has never had balance and is still unknown to the contract.
 
 | parameter | type |
 | :--- | :--- |
@@ -95,10 +124,11 @@ Returns the account balance of another account with address `owner`, if the acco
 
 ### owner\(\)
 
+Returns the owner's address for the provided `token`, if the token is minted. If the token isn't minted `None` will be returned. 
+
 ```sophia
 entrypoint owner : (token int) => option(address)
 ```
-Returns the owner's address for the provided `token`, if the token is minted. If the token isn't minted `None` will be returned. 
 
 | parameter | type |
 | :--- | :--- |
@@ -109,11 +139,6 @@ Returns the owner's address for the provided `token`, if the token is minted. If
 | owner | option(address) |
 
 ### transfer\(\)
-
-```sophia
-stateful transfer : (from address, to address, token int, data option(string)) => unit
-```
-
 Transfers `token` from the `from` address to the `to` address. Will invoke `NFTReceiver` if `to` is a contract receiver. If provided `data` will be submitted with the invocation of `NFTReceiver`. Emits the `Transfer` event.
 
 Should throw if:
@@ -121,6 +146,11 @@ Should throw if:
 - `from` isn't the current owner;
 - `token` isn't a valid token;
 - the invocation of `NFTReceiver` fails.
+
+
+```sophia
+stateful transfer : (from address, to address, token int, data option(string)) => unit
+```
 
 | parameter | type |
 | :--- | :--- |
@@ -131,11 +161,11 @@ Should throw if:
 
 ### approve\(\)
 
+Sets the `approved` address to interact on behalf of an owner for the `token`. Throws unless caller is the current NFT owner, or an authorized operator of the current owner. Emits the `Approval` event.
+
 ```sophia
 stateful entrypoint approve : (approved address, token int) => unit
 ```
-
-Sets the `approved` address to interact on behalf of an owner for the `token`. Throws unless caller is the current NFT owner, or an authorized operator of the current owner. Emits the `Approval` event.
 
 | parameter | type |
 | :--- | :--- |
@@ -144,11 +174,11 @@ Sets the `approved` address to interact on behalf of an owner for the `token`. T
 
 ### revoke_approval\(\)
 
+Revokes approval for the specified `token`. Throws unless caller is the current NFT owner, or an authorized operator of the current owner. Emits the `Approval` event.
+
 ```sophia
 stateful entrypoint revoke_approval : (int) => unit
 ```
-
-Revokes approval for the specified `token`. Throws unless caller is the current NFT owner, or an authorized operator of the current owner. Emits the `Approval` event.
 
 | parameter | type |
 | :--- | :--- |
@@ -156,11 +186,11 @@ Revokes approval for the specified `token`. Throws unless caller is the current 
 
 ### approve_all\(\)
 
+Enables or disables approval for an `operator` to manage all of the caller's assets. If `enabled` is true the operator is approved, if `false` the approval is revoked. Emits the `ApprovalForAll` event.
+
 ```sophia
 stateful entrypoint approve_all : (operator address, enabled bool) => unit
 ```
-
-Enables or disables approval for an `operator` to manage all of the caller's assets. If `enabled` is true the operator is approved, if `false` the approval is revoked. Emits the `ApprovalForAll` event.
 
 | parameter | type |
 | :--- | :--- |
@@ -169,11 +199,11 @@ Enables or disables approval for an `operator` to manage all of the caller's ass
 
 ### get_approved\(\)
 
+Returns the address approved to interact with the `token` or returns None if no approval has been set. Throws if `token` is an invalid token ID.
+
 ```sophia
 entrypoint get_approved : (token int) => option(address)
 ``` 
-
-Returns the address approved to interact with the `token` or returns None if no approval has been set. Throws if `token` is an invalid token ID.
 
 | parameter | type |
 | :--- | :--- |
@@ -185,11 +215,11 @@ Returns the address approved to interact with the `token` or returns None if no 
 
 ### is_approved\(\)
 
+Returns `true` if `approved` is approved to transact for `token`.
+
 ```sophia
 entrypoint is_approved : (token int, approved address) => bool
 ``` 
-
-Returns `true` if `approved` is approved to transact for `token`.
 
 | parameter | type |
 | :--- | :--- |
@@ -202,13 +232,13 @@ Returns `true` if `approved` is approved to transact for `token`.
     
 ### is_approved_for_all\(\)
 
-```sophia
-entrypoint is_approved_for_all : (owner address, operator address) => bool
-``` 
-
 Returns `true` if `operator` is approved to commit transactions on behalf of `owner`.
 
 Indicates wether an address is an authorized operator for another address.
+
+```sophia
+entrypoint is_approved_for_all : (owner address, operator address) => bool
+``` 
 
 | parameter | type |
 | :--- | :--- |
@@ -230,13 +260,13 @@ datatype event
 
 ### *Transfer*
 
-```sophia
-Transfer(indexed address, indexed address, indexed int)
-```
-
 This event MUST be triggered and emitted when tokens are transferred, including zero value transfers.
 
 The event arguments should be as follows: `(from_account, to_account, token_id)`
+
+```sophia
+Transfer(indexed address, indexed address, indexed int)
+```
 
 | parameter | type |
 | :--- | :--- |
@@ -246,13 +276,13 @@ The event arguments should be as follows: `(from_account, to_account, token_id)`
 
 ### *Approval*
 
-```sophia
-Approval(indexed address, indexed address, indexed int)
-```
-
 This event MUST be triggered and emitted upon approval, including revocation of approval.
 
 The event arguments should be as follows: `(owner, approved, token_id)`
+
+```sophia
+Approval(indexed address, indexed address, indexed int)
+```
 
 | parameter | type |
 | :--- | :--- |
@@ -261,12 +291,14 @@ The event arguments should be as follows: `(owner, approved, token_id)`
 | token_id | int |
 
 ## *ApprovalForAll*
-```sophia
-ApprovalForAll(indexed address, indexed address, bool)
-```
+
 This event MUST be triggered and emitted upon a change of operator status, including revocation of approval.
 
 The event arguments should be as follows: `(owner, operator, approved)`
+
+```sophia
+ApprovalForAll(indexed address, indexed address, bool)
+```
 
 | parameter | type |
 | :--- | :--- |
@@ -274,127 +306,134 @@ The event arguments should be as follows: `(owner, operator, approved)`
 | operator | address |
 | approved | bool |
 
-=============== TODO ===============
+## Extension Mintable ("mintable")
 
-### ControlledMinting (Secondary interface)
-Option to control who may mint tokens.
+### mint\(\)
 
-`stateful entrypoint set_minter : (address) => unit`
+Issues a new token to the provided address. If the `owner` is a contract, NFTReceiver will be called with `data` if provided.
+Emits a Transfer event.
+Throws if the call to NFTReceiver implementation failed (safe transfer). 
 
-Set an address which is allowed to mint new tokens.
-
-- @param _minter Address of the new minter
-- @dev Throws if Caller isn't the contract's owner
-
-`stateful entrypoint remove_minter : (address) => unit`
-
-Removes a minter from the list of allowed minters.
-
-- @param _minter Address of the minter
-- @dev Throws if Caller isn't the contract's owner or the minter
-
-`entrypoint is_minter : (address) => bool`
-
-Indicates whether the provided `address` is listed as a minter.
-
-- @param minter Address of a potential minter
-- @return `true` if the minter is listed, `false` if not
-
-### Burnable (Secondary interface)
-`stateful entrypoint burn : (int) => unit`
-
-Burn a token.
-
-@param _token_id Token identifier
-
-### WithTokenData (Secondary interface)
-The idea of token data is to store relevant data on a per token basis, this could be a URI to a digital object or 
-an identifier of a physical object. Token data should be consize, for this purpose it's a tuple consisting of the data type (for example uri)and data value.
-
-Allthough the user should be free to implement own types, this AEX defines common types.
-
-`entrypoint get_token_data : (int) => option((string * string))`
-
-Provides the token data for the requested token (if any).
-
-- @param _token_id is the token id for which the uri is requested
-- @return Some((type, value)) or None if no uri has been set for this token
-
-`stateful entrypoint mint_with_token_data : (address, int, string, string) => unit`  
-
-Issues a new token with token data to the provided address.
-
-- @param _to is the address of the new token's owner
-- @param _token_id is the id of the minted token
-- @param _token_data_type is the type of data the value represents, e.g. uri, object_id
-- @param _token_data_value is the data's value
-- @dev throws if already minted
-- @dev Emits Transfer
-    
-
-`stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => unit`
-
-Issues a new token with token data to the provided address and calls the NFTReceiver implementation on the receiving contract. 
-
-- @param _to is the address of the new token's owner
-- @param _token_id is the id of the minted token
-- @param _token_data_type is the type of data the value represents, e.g. uri, object_id
-- @param _token_data_value is the data's value
-- @param _data is data that will be forwarded to contact recipients
-- @dev throws if already minted
-- @dev throws if the call to NFTReceiver implementation failed
-- @dev Emits Transfer
-- @return true if the call to the NFTReceiver was succesfull and false if the call failed.
-
-#### Common data types
-- uri: Unified Resource Identifier to a digital object, for example: http, ipfs, etc.
-- uoid: Unique Object IDentifier of a physical object.
-
-### WithMetaInfo (Secondary interface)
-
+```sophia
+stateful entrypoint mint : (owner address, token_data option(metadata), data option(string)) => int
 ```
-contract interface WithMetaInfo = 
-    record meta_info = 
-    { name: string
-    , symbol: string }
+| parameter | type | 
+| :--- | :--- | 
+| owner | address |
+| token_data | option(metadata) |
+| data  | option(string) | 
 
-    // meta_info is a getter for meta info.
-    entrypoint meta_info : () => meta_info
+| return | type |
+| :--- | :--- |
+| token id | int |
+
+## Extension Burnable ("burnable")
+
+### burn\(\)
+
+This function burns the token of the provided token id from `Call.caller`. Triggers the `Transfer` event.
+
+```sophia
+stateful entrypoint burn(token: int) : unit
 ```
 
-Part of this AEX specification to ensure compatibility with the meta info structure of AEX-9 Fungible tokens. Perhaps this should be an AEX of its own.
+| parameter | type |
+| :--- | :--- |
+| token | int |
 
-### NFTReceiver (Receiver contract interface)
+## Extension Swappable ("swappable")
 
-`entrypoint on_nft_received : (address, address, int, string) => unit`
+### swap\(\)
 
-Contracts receiving NFT tokens should implement this interface. Safe functions will invoke the `on_nft_received` function.
+This function burns the whole balance of the `Call.caller` and stores the same amount in the `swapped` map. 
 
-- @param _from is the current owner of the token. Will be the NFT contract's address on newly minted tokens.
-- @param _to is the address of the new token's owner
-- @param _token_id is the token identifier
-- @param _data is data passed on from the calling function
+```sophia
+stateful entrypoint swap() : unit
+```
 
-## Extensions
+| parameter | type |
+| :--- | :--- |
+| value | int |
 
-contract interface ControlledMinting =
+| return | type |
+| :--- | :--- |
+| () | unit |
 
-    stateful entrypoint set_minter : (address) => unit
+### check_swap\(\)
 
-    stateful entrypoint remove_minter : (address) => unit
+This function returns the amount of tokens that were burned trough `swap` for the provided account. 
 
-    entrypoint is_minter : (address) => bool
+```sophia
+stateful entrypoint check_swap(account: address) : int
+```
 
-contract interface Burnable = 
-    stateful entrypoint burn : (int) => unit
+| parameter | type |
+| :--- | :--- |
+| account | address |
 
-contract interface WithTokenData = 
-    entrypoint get_token_data : (int) => option((string * string))
+| return | type |
+| :--- | :--- |
+| int | int |
 
-    stateful entrypoint mint_with_token_data : (address, int, string, string) => unit
+### swapped\(\)
 
-    stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => unit
+This function returns all of the swapped tokens that are stored in contract state. 
+
+```sophia
+stateful entrypoint swapped() : map(address, int)
+```
+
+| return | type |
+| :--- | :--- |
+| swapped | map(address, int) |
+
+## Events
+
+**Swap** - MUST trigger when tokens are swapped using the `swap` function.
+
+The swap event arguments should be as follows: `(account,  value)`
+
+```sophia
+Swap(address, int)
+```
+
+| parameter | type |
+| :--- | :--- |
+| account| address |
+| value | int |
+
+## Extension Batch Transfer ("batch_transfer")
+
+### batch_transfer\(\)
+
+Transfer multiple tokens to an address.
+
+```sophia
+stateful entrypoint batch_transfer(to : address, tokens : list(int)) : unit
+```
+
+| parameter | type |
+| :--- | :--- |
+| to | address |
+| tokens | list(int) |
+
+# Receiver contract interface
+
+## NFTReceiver
 
 contract interface NFTReceiver = 
-    entrypoint on_nft_received : (address, address, int, string) => unit
+    entrypoint on_nft_received : (address, address, int, option(string)) => unit
+
+### on_nft_received\(\)
+
+Deals with receiving NFT tokens on behalf of a smart contract. Contracts receiving NFT tokens should implement this interface. Mint and transfer transactions will invoke the `on_nft_received` function.
+
+```sofia
+entrypoint on_nft_received : (address, address, int, option(string)) => unit
 ```
+| parameter | type |
+| :--- | :--- |
+| from | address |
+| to | address |
+| token | int |
+| data | option(string) |

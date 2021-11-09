@@ -125,4 +125,4 @@ contract interface WithTokenData =
     stateful entrypoint safe_mint_with_token_data : (address, int, string, string, string) => unit
 
 contract interface NFTReceiver = 
-    entrypoint on_nft_received : (address, address, int, string) => unit
+    entrypoint on_nft_received : (address, address, int, option(string)) => unit
