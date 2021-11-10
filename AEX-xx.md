@@ -34,8 +34,7 @@ contract interface NFT =
         { name: string
         , symbol: string 
         , base_url: option(string)
-        , metadata : metadata_type
-        , token_data: map(int, metadata)}
+        , type : metadata_type)}
 
     datatype event 
         = Transfer(indexed address, indexed address, indexed int)
