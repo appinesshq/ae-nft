@@ -38,7 +38,7 @@ contract interface NFT =
 
     datatype event 
         = Transfer(indexed address, indexed address, indexed int)
-        | Approval(indexed address, indexed address, indexed int)
+        | Approval(indexed address, indexed address, indexed int, bool)
         | ApprovalForAll(indexed address, indexed address, bool)
 
     entrypoint aexX_extensions() : list(string)
@@ -55,11 +55,9 @@ contract interface NFT =
         
     stateful transfer : (from address, to address, token int, data option(string)) => unit
 
-    stateful entrypoint approve : (address, int) => unit
+    stateful entrypoint approve : (address, int, bool) => unit
 
     stateful entrypoint approve_all : (address, bool) => unit
-
-    stateful entrypoint revoke_approval : (int) => unit
 
     entrypoint get_approved : (int) => option(address)
 
@@ -160,28 +158,17 @@ stateful transfer : (from address, to address, token int, data option(string)) =
 
 ### approve\(\)
 
-Sets the `approved` address to interact on behalf of an owner for the `token`. Throws unless caller is the current NFT owner, or an authorized operator of the current owner. Emits the `Approval` event.
+Sets the `approved` address to interact on behalf of an owner for the `token`. If `enabled` is true the operator is approved, if `false` the approval is revoked. Throws unless caller is the current NFT owner, or an authorized operator of the current owner. Emits the `Approval` event.
 
 ```sophia
-stateful entrypoint approve : (approved address, token int) => unit
+stateful entrypoint approve : (approved address, token int, enabled bool) => unit
 ```
 
 | parameter | type |
 | :--- | :--- |
 | approved | address |
 | token | int |
-
-### revoke_approval\(\)
-
-Revokes approval for the specified `token`. Throws unless caller is the current NFT owner, or an authorized operator of the current owner. Emits the `Approval` event.
-
-```sophia
-stateful entrypoint revoke_approval : (int) => unit
-```
-
-| parameter | type |
-| :--- | :--- |
-| token | int |
+| enabled | bool |
 
 ### approve_all\(\)
 
@@ -253,7 +240,7 @@ entrypoint is_approved_for_all : (owner address, operator address) => bool
 ```
 datatype event 
         = Transfer(indexed address, indexed address, indexed int)
-        | Approval(indexed address, indexed address, indexed int)
+        | Approval(indexed address, indexed address, indexed int, bool)
         | ApprovalForAll(indexed address, indexed address, bool)
 ```
 
@@ -277,10 +264,10 @@ Transfer(indexed address, indexed address, indexed int)
 
 This event MUST be triggered and emitted upon approval, including revocation of approval.
 
-The event arguments should be as follows: `(owner, approved, token_id)`
+The event arguments should be as follows: `(owner, approved, token_id, enabled)`
 
 ```sophia
-Approval(indexed address, indexed address, indexed int)
+Approval(indexed address, indexed address, indexed int, bool)
 ```
 
 | parameter | type |
@@ -288,6 +275,7 @@ Approval(indexed address, indexed address, indexed int)
 | owner | address |
 | approved | address |
 | token_id | int |
+| enabled | bool |
 
 ## *ApprovalForAll*
 
