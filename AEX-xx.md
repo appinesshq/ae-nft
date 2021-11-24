@@ -389,21 +389,6 @@ Swap(address, int)
 | account| address |
 | value | int |
 
-## Extension Batch Transfer ("batch_transfer")
-
-### batch_transfer\(\)
-
-Transfer multiple tokens to an address.
-
-```sophia
-stateful entrypoint batch_transfer(to : address, tokens : list(int)) : unit
-```
-
-| parameter | type |
-| :--- | :--- |
-| to | address |
-| tokens | list(int) |
-
 # Receiver contract interface
 
 ## NFTReceiver
