@@ -28,7 +28,7 @@ The following standard describes standard interfaces for non-fungible tokens. Th
 ```
 contract interface NFT =
     datatype metadata_type = URL | IPFS | OBJECT_ID | MAP
-    datatype metadata = Url(string) | Ipfs(string) | ObjectID(string) | Internal(map(string,string))
+    datatype metadata = string | map(string,string)
 
     record meta_info = 
         { name: string
